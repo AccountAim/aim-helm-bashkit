@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "bundler/setup"
+require "aim-helm-bashkit"
+require "irb"
+
+# In-memory stand-in for a Workspace store: { "inputs/schema.sql" => "..." }.
+class HashStore
+  attr_reader :documents
+
+  def initialize(documents = {}) = @documents = documents
+  def read(path) = documents[path]
+  def write(path, content) = documents[path] = content
+  def delete(path) = documents.delete(path)
+end
+
+def bash = @bash ||= AimHelmBashkit::Bash.new
+def store = @store ||= HashStore.new("inputs/schema.sql" => "id INTEGER,\npremium_amount INTEGER\n")
+def workspace = @workspace ||= AimHelmBashkit::Workspace.new(store)
+
+puts <<~HELP
+  aim-helm-bashkit #{AimHelmBashkit::VERSION} (bashkit #{AimHelmBashkit.version})
+
+    bash.execute("echo hi | tr a-z A-Z")
+    workspace.execute("rg premium inputs/schema.sql > hits.txt", files: %w[inputs/schema.sql hits.txt])
+    store.documents
+HELP
+
+IRB.start(__FILE__)

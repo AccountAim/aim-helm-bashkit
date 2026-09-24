@@ -1,0 +1,7 @@
+/.bundle/
+/pkg/
+/tmp/
+*.gem
+/lib/aim_helm_bashkit/libbashkit.*
+/ext/aim_helm_bashkit/Makefile
+/ext/aim_helm_bashkit/prebuilt/

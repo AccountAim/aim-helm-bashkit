@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  # Binaries come from the bashkit GitHub release, so every platform packages on ubuntu.
+  package-native:
+    name: Package (${{ matrix.platform }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - x86_64-linux-gnu
+          - aarch64-linux-gnu
+          - x86_64-darwin
+          - arm64-darwin
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Fetch prebuilt native library
+        run: ruby scripts/fetch_native.rb ${{ matrix.platform }}
+
+      - name: Build platform gem
+        run: ruby scripts/build_native_gem.rb ${{ matrix.platform }}
+
+      - name: Upload gem
+        uses: actions/upload-artifact@v7
+        with:
+          name: gem-${{ matrix.platform }}
+          path: pkg/*.gem
+          if-no-files-found: error
+
+  package-source:
+    name: Package (source)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Build source gem
+        run: gem build aim-helm-bashkit.gemspec
+
+      - name: Upload gem
+        uses: actions/upload-artifact@v7
+        with:
+          name: gem-source
+          path: "*.gem"
+          if-no-files-found: error
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Fetch prebuilt native library
+        run: ruby scripts/fetch_native.rb
+
+      - name: Run specs
+        run: bundle exec rspec
+
+  publish:
+    name: Publish to RubyGems.org
+    needs: [package-native, package-source, test]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Download all gem artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: gem-*
+          path: gems/
+          merge-multiple: true
+
+      - name: Configure trusted publisher credentials
+        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+
+      - name: Push gems
+        run: |
+          for gem in gems/*.gem; do
+            echo "Publishing $gem ..."
+            gem push "$gem"
+          done

@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Fetch prebuilt native library
+        run: ruby scripts/fetch_native.rb
+
+      - name: Run specs
+        run: bundle exec rspec
+
+      - name: Lint
+        run: bundle exec rubocop
